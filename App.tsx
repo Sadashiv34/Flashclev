@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Page, Book } from './types';
-import { getBookSuggestions, generateBookCoverImage } from './services/geminiService';
+import { getBookSuggestionsBatch, generateBookCoverImage } from './services/geminiService';
 import LandingPage from './components/LandingPage';
 import SearchPage from './components/SearchPage';
 import BookSuggestionPage from './components/BookSuggestionPage';
@@ -60,13 +60,24 @@ const App: React.FC = () => {
     setIsLoading(true);
     setSuggestedBooks([]);
     setLoadingMessage('Finding the perfect books for your goal...');
-    const books = await getBookSuggestions(goal);
-    
+
+    // Generate books in parallel batches of 2
+    const books = await getBookSuggestionsBatch(goal, [], 2);
+
+    // Process covers for all books at once (since we want to show them progressively)
     const booksWithCovers = await processBooksWithCovers(books);
-    
-    setSuggestedBooks(booksWithCovers);
+
+    // Show first 4 books immediately
+    setSuggestedBooks(booksWithCovers.slice(0, 4));
     setIsLoading(false);
     setCurrentPage(Page.Suggestions);
+
+    // Continue processing remaining books in background if any
+    if (booksWithCovers.length > 4) {
+      setTimeout(() => {
+        setSuggestedBooks(booksWithCovers);
+      }, 100); // Small delay to allow UI to update first
+    }
   };
 
   const loadMoreBooks = async () => {
@@ -74,7 +85,7 @@ const App: React.FC = () => {
 
     setIsFetchingMore(true);
     const existingTitles = suggestedBooks.map(b => b.title);
-    const newBooks = await getBookSuggestions(userGoal, existingTitles);
+    const newBooks = await getBookSuggestionsBatch(userGoal, existingTitles, 2);
 
     if (newBooks.length > 0) {
         const booksWithCovers = await processBooksWithCovers(newBooks);
