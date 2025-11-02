@@ -30,19 +30,30 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
       setMessages([]);
       const details = await getBookDetails(bookName);
       setBookDetails(details);
-      
-      chatSessionRef.current = startChatSession(details.title);
-      
-      setIsAnswering(true);
-      const stream = await chatSessionRef.current.sendMessageStream({ message: `Start the conversation.` });
-      
-      let text = '';
-      for await (const chunk of stream) {
-        text += chunk.text;
+
+      const chatSession = startChatSession(details.title);
+      chatSessionRef.current = chatSession;
+
+      if (chatSession) {
+        setIsAnswering(true);
+        try {
+          const stream = await chatSession.sendMessageStream({ message: `Start the conversation.` });
+
+          let text = '';
+          for await (const chunk of stream) {
+            text += chunk.text;
+          }
+
+          setMessages([{ id: Date.now().toString(), sender: 'ai', text }]);
+        } catch (error) {
+          console.error("Error starting conversation:", error);
+          setMessages([{ id: Date.now().toString(), sender: 'ai', text: "I'm having trouble connecting right now. Please check your API configuration and try again." }]);
+        } finally {
+          setIsAnswering(false);
+        }
+      } else {
+        setMessages([{ id: Date.now().toString(), sender: 'ai', text: "AI service is not available. Please check your API key configuration." }]);
       }
-      
-      setMessages([{ id: Date.now().toString(), sender: 'ai', text }]);
-      setIsAnswering(false);
       setIsLoading(false);
     };
 
@@ -63,23 +74,30 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
     setIsAnswering(true);
     setMessages([]); // Clear previous chat
 
-    try {
-      chatSessionRef.current = startChatSession(bookDetails.title, chapter);
-      const stream = await chatSessionRef.current.sendMessageStream({ message: `Start the conversation.` });
+    const chatSession = startChatSession(bookDetails.title, chapter);
+    chatSessionRef.current = chatSession;
 
-      let text = '';
-      for await (const chunk of stream) {
-        text += chunk.text;
+    if (chatSession) {
+      try {
+        const stream = await chatSession.sendMessageStream({ message: `Start the conversation.` });
+
+        let text = '';
+        for await (const chunk of stream) {
+          text += chunk.text;
+        }
+
+        setMessages([{ id: Date.now().toString(), sender: 'ai', text }]);
+      } catch (error) {
+        console.error("Error starting new chapter chat:", error);
+        const errorMessage: ChatMessage = { id: Date.now().toString(), sender: 'ai', text: "Sorry, I couldn't switch to that chapter. Please try again." };
+        setMessages([errorMessage]);
       }
-      
-      setMessages([{ id: Date.now().toString(), sender: 'ai', text }]);
-    } catch (error) {
-      console.error("Error starting new chapter chat:", error);
-      const errorMessage: ChatMessage = { id: Date.now().toString(), sender: 'ai', text: "Sorry, I couldn't switch to that chapter. Please try again." };
+    } else {
+      const errorMessage: ChatMessage = { id: Date.now().toString(), sender: 'ai', text: "AI service is not available. Please check your API key configuration." };
       setMessages([errorMessage]);
-    } finally {
-      setIsAnswering(false);
     }
+
+    setIsAnswering(false);
   }, [bookDetails, selectedChapter, isAnswering]);
 
   const handleSendMessage = useCallback(async (e: React.FormEvent) => {

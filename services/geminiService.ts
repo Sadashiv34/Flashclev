@@ -3,10 +3,11 @@ import { GoogleGenAI, Type, Chat } from "@google/genai";
 import type { BookDetails } from '../types';
 
 if (!import.meta.env.VITE_API_KEY) {
-    throw new Error("VITE_API_KEY environment variable not set");
+    console.error("VITE_API_KEY environment variable not set. Please check your environment configuration.");
+    // Instead of throwing, we'll handle this gracefully
 }
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
+const ai = import.meta.env.VITE_API_KEY ? new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY }) : null;
 
 const bookDetailsSchema = {
     type: Type.OBJECT,
@@ -33,34 +34,43 @@ const bookDetailsSchema = {
 
 export const getBookDetails = async (bookName: string): Promise<BookDetails> => {
     let bookDetailsFromAI: Omit<BookDetails, 'coverImageUrl'>;
-    
-    try {
-        const result = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Analyze the book title "${bookName}". Provide its accurately corrected official title, primary author, and a list of its main chapters or sections.`,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: bookDetailsSchema,
-            },
-        });
 
-        const jsonString = result.text;
-        const parsed = JSON.parse(jsonString);
-
-        if (parsed && parsed.title && parsed.author && parsed.chapters) {
-            bookDetailsFromAI = parsed;
-        } else {
-            throw new Error("Invalid data structure received from API.");
-        }
-
-    } catch (error) {
-        console.error("Error fetching book details from Gemini:", error);
-        // Fallback for Gemini failure
+    if (!ai) {
+        console.warn("Gemini AI not initialized - using fallback data");
         bookDetailsFromAI = {
             title: bookName,
             author: "Unknown Author",
             chapters: ["Introduction", "Chapter 1", "Chapter 2", "Chapter 3", "Conclusion"],
         };
+    } else {
+        try {
+            const result = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: `Analyze the book title "${bookName}". Provide its accurately corrected official title, primary author, and a list of its main chapters or sections.`,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: bookDetailsSchema,
+                },
+            });
+
+            const jsonString = result.text;
+            const parsed = JSON.parse(jsonString);
+
+            if (parsed && parsed.title && parsed.author && parsed.chapters) {
+                bookDetailsFromAI = parsed;
+            } else {
+                throw new Error("Invalid data structure received from API.");
+            }
+
+        } catch (error) {
+            console.error("Error fetching book details from Gemini:", error);
+            // Fallback for Gemini failure
+            bookDetailsFromAI = {
+                title: bookName,
+                author: "Unknown Author",
+                chapters: ["Introduction", "Chapter 1", "Chapter 2", "Chapter 3", "Conclusion"],
+            };
+        }
     }
 
     // Now, fetch the cover image from Open Library
@@ -87,9 +97,14 @@ export const getBookDetails = async (bookName: string): Promise<BookDetails> => 
     };
 };
 
-export const startChatSession = (bookName: string, chapter: string = 'All'): Chat => {
-    const context = chapter === 'All' 
-        ? `the entire book "${bookName}"` 
+export const startChatSession = (bookName: string, chapter: string = 'All'): Chat | null => {
+    if (!ai) {
+        console.warn("Gemini AI not initialized - cannot start chat session");
+        return null;
+    }
+
+    const context = chapter === 'All'
+        ? `the entire book "${bookName}"`
         : `the chapter "${chapter}" from the book "${bookName}"`;
 
     return ai.chats.create({
