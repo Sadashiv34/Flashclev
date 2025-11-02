@@ -194,7 +194,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
         <p className="text-gray-300 leading-relaxed">📩 Email: <a href="mailto:sadashivahiremath35@gmail.com" className="text-blue-400 hover:underline">sadashivahiremath35@gmail.com</a></p>
       </>
     ),
-    "Services": "Book Deep Dive AI offers a unique, AI-powered conversational experience to help users explore the themes, concepts, and actionable insights from any book. Our service is designed to deepen understanding and encourage the practical application of knowledge.",
     "About Us": (
       <>
         <h4 className="text-lg font-bold mb-3">About Us – Why Flashclev Exists</h4>
