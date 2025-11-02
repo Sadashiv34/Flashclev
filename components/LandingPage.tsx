@@ -58,7 +58,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
     "Privacy Policy": (
       <>
         <h4 className="text-lg font-bold mb-3">Privacy Policy – Flashclev (Deep Understanding App)</h4>
-        <p className="text-gray-300 leading-relaxed mb-2">Last Updated: [Insert Date]</p>
+        <p className="text-gray-300 leading-relaxed mb-2">Last Updated: [02/11/2025]</p>
         <p className="text-gray-300 leading-relaxed mb-4">At Flashclev (“we,” “our,” “us”), we respect your privacy. This Privacy Policy explains how we collect, use, and protect your information when you use our web application.</p>
         
         <h5 className="text-md font-semibold mb-2">1. What Data We Collect</h5>
