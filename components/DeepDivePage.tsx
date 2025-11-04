@@ -14,6 +14,11 @@ const LoadingSpinner: React.FC = () => (
     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
 );
 
+const parseBookTitle = (title: string) => {
+  const colonIndex = title.indexOf(':');
+  return colonIndex !== -1 ? title.substring(0, colonIndex).trim() : title;
+};
+
 const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }) => {
   const [bookDetails, setBookDetails] = useState<BookDetails | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<string>('All');
@@ -157,10 +162,10 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
         <span>Search for another book</span>
       </button>
 
-      <header className="flex flex-col sm:flex-row items-center gap-6 mb-6">
+      <header className="flex flex-col items-center gap-6 mb-6">
         <img src={bookDetails.coverImageUrl} alt={bookDetails.title} className="w-32 h-48 object-cover rounded-lg shadow-lg" />
-        <div>
-          <h1 className="text-3xl font-bold">{bookDetails.title}</h1>
+        <div className="text-center">
+          <h1 className="text-3xl font-bold">{parseBookTitle(bookDetails.title)}</h1>
           <p className="text-lg text-slate-400">{bookDetails.author}</p>
         </div>
       </header>
@@ -181,23 +186,23 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
       </div>
       
       <main className="flex-1 flex flex-col bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
-        <div className="p-4 border-b border-slate-700">
+        <div className="p-1 border-b border-slate-700">
             <h2 className="text-xl font-bold">Deep Understanding</h2>
         </div>
-        <div ref={chatContainerRef} className="flex-1 p-4 overflow-y-auto space-y-6">
+        <div ref={chatContainerRef} className="flex-1 p-1 overflow-y-auto space-y-2">
           {messages.map((msg) => (
-             <div key={msg.id} className={`flex items-start gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {msg.sender === 'ai' && <div className="w-8 h-8 rounded-full bg-purple-500 flex-shrink-0 flex items-center justify-center"><AiIcon className="w-5 h-5 text-white" /></div>}
-                <div className={`max-w-md px-4 py-3 rounded-2xl ${msg.sender === 'user' ? 'bg-purple-600 rounded-br-none' : 'bg-slate-700 rounded-bl-none'}`}>
+             <div key={msg.id} className={`flex items-start gap-4 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.sender === 'ai' && <div className="w-10 h-10 rounded-full bg-purple-500 flex-shrink-0 flex items-center justify-center"><AiIcon className="w-6 h-6 text-white" /></div>}
+                <div className={`max-w-lg px-6 py-4 rounded-2xl ${msg.sender === 'user' ? 'bg-purple-600 rounded-br-none' : 'bg-slate-700 rounded-bl-none'}`}>
                    <p className="text-white whitespace-pre-wrap">{msg.text}</p>
                 </div>
-                {msg.sender === 'user' && <div className="w-8 h-8 rounded-full bg-slate-600 flex-shrink-0 flex items-center justify-center"><UserIcon className="w-5 h-5 text-white" /></div>}
+                {msg.sender === 'user' && <div className="w-10 h-10 rounded-full bg-slate-600 flex-shrink-0 flex items-center justify-center"><UserIcon className="w-6 h-6 text-white" /></div>}
             </div>
           ))}
           {isAnswering && (
-             <div className="flex items-start gap-3 justify-start">
-                <div className="w-8 h-8 rounded-full bg-purple-500 flex-shrink-0 flex items-center justify-center"><AiIcon className="w-5 h-5 text-white" /></div>
-                <div className="max-w-md px-4 py-3 rounded-2xl bg-slate-700 rounded-bl-none flex items-center space-x-2">
+             <div className="flex items-start gap-4 justify-start">
+                <div className="w-10 h-10 rounded-full bg-purple-500 flex-shrink-0 flex items-center justify-center"><AiIcon className="w-6 h-6 text-white" /></div>
+                <div className="max-w-lg px-6 py-4 rounded-2xl bg-slate-700 rounded-bl-none flex items-center space-x-2">
                     <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse delay-0"></div>
                     <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse delay-150"></div>
                     <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse delay-300"></div>
@@ -205,7 +210,7 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
             </div>
           )}
         </div>
-        <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-700 bg-slate-800">
+        <form onSubmit={handleSendMessage} className="p-1 border-t border-slate-700 bg-slate-800">
             <div className="relative">
                 <input
                     type="text"
