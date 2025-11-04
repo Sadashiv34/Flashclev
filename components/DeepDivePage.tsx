@@ -20,15 +20,15 @@ const parseBookTitle = (title: string) => {
 };
 
 const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }) => {
-  const [bookDetails, setBookDetails] = useState<BookDetails | null>(null);
-  const [selectedChapter, setSelectedChapter] = useState<string>('All');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [userInput, setUserInput] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAnswering, setIsAnswering] = useState(false);
-  const [viewportHeight, setViewportHeight] = useState<number>(window.innerHeight);
-  const chatSessionRef = useRef<Chat | null>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+   const [bookDetails, setBookDetails] = useState<BookDetails | null>(null);
+   const [selectedChapter, setSelectedChapter] = useState<string>('All');
+   const [messages, setMessages] = useState<ChatMessage[]>([]);
+   const [userInput, setUserInput] = useState('');
+   const [isLoading, setIsLoading] = useState(true);
+   const [isAnswering, setIsAnswering] = useState(false);
+   const [prevHeight, setPrevHeight] = useState(window.innerHeight);
+   const chatSessionRef = useRef<Chat | null>(null);
+   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -70,33 +70,35 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
   }, [bookName]);
 
   useEffect(() => {
-    const handleResize = () => {
-      setViewportHeight(window.innerHeight);
-    };
-
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-
-    // Handle visual viewport changes for mobile keyboards
-    if (window.visualViewport) {
-      const handleVisualViewportChange = () => {
-        setViewportHeight(window.visualViewport!.height);
-      };
-      window.visualViewport.addEventListener('resize', handleVisualViewportChange);
-    }
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', () => {});
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
+
+  // Dynamic viewport height effect
+  useEffect(() => {
+    const setVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+    setVh();
+    window.addEventListener('resize', setVh);
+    return () => window.removeEventListener('resize', setVh);
+  }, []);
+
+  // Keyboard open detection and chat scroll
+  useEffect(() => {
+    const handleResize = () => {
+      const currentHeight = window.innerHeight;
+      if (currentHeight < prevHeight) {
+        // Keyboard likely opened
+        setTimeout(() => {
+          chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
+        }, 100); // Small delay for stability
+      }
+      setPrevHeight(currentHeight);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [prevHeight]);
 
   const handleChapterSelect = useCallback(async (chapter: string) => {
     if (chapter === selectedChapter || isAnswering || !bookDetails) return;
@@ -134,22 +136,17 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
   const handleSendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userInput.trim() || isAnswering || !chatSessionRef.current) return;
-
+    
     const userMessage: ChatMessage = { id: Date.now().toString(), sender: 'user', text: userInput };
     setMessages(prev => [...prev, userMessage]);
     setUserInput('');
     setIsAnswering(true);
 
-    // Scroll to bottom after adding user message
-    setTimeout(() => {
-      chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
-    }, 100);
-
     try {
-        const stream = await chatSessionRef.current.sendMessageStream({
+        const stream = await chatSessionRef.current.sendMessageStream({ 
           message: userInput
         });
-
+        
         let text = '';
         for await (const chunk of stream) {
             text += chunk.text;
@@ -157,11 +154,6 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
 
         const aiMessage: ChatMessage = { id: (Date.now() + 1).toString(), sender: 'ai', text };
         setMessages(prev => [...prev, aiMessage]);
-
-        // Scroll to bottom after AI response
-        setTimeout(() => {
-          chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
-        }, 100);
 
     } catch (error) {
         console.error("Error sending message:", error);
@@ -192,7 +184,7 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
   }
 
   return (
-    <div className="container mx-auto max-w-4xl p-4 flex flex-col" style={{ height: `${viewportHeight}px` }}>
+    <div className="container mx-auto max-w-4xl p-4 flex flex-col pb-20" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
       <button onClick={onSearchAnother} className="flex items-center space-x-2 text-slate-300 hover:text-white self-start mb-4">
         <BackArrowIcon className="w-5 h-5"/>
         <span>Search for another book</span>
@@ -210,9 +202,9 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
         <h2 className="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">Select Chapter</h2>
         <div className="flex space-x-2 overflow-x-auto pb-2 -mx-4 px-4">
           {['All', ...bookDetails.chapters].map(chapter => (
-            <button 
-                key={chapter} 
-                onClick={() => handleChapterSelect(chapter)} 
+            <button
+                key={chapter}
+                onClick={() => handleChapterSelect(chapter)}
                 disabled={isAnswering}
                 className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${selectedChapter === chapter ? 'bg-purple-600 text-white' : 'bg-slate-700/50 hover:bg-slate-700 text-slate-300'}`}>
               {chapter}
@@ -220,7 +212,7 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
           ))}
         </div>
       </div>
-      
+
       <main className="flex-1 flex flex-col bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
         <div className="p-1 border-b border-slate-700">
             <h2 className="text-xl font-bold">Deep Understanding</h2>
@@ -246,22 +238,27 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
             </div>
           )}
         </div>
-        <form onSubmit={handleSendMessage} className="p-1 border-t border-slate-700 bg-slate-800">
-            <div className="relative">
-                <input
-                    type="text"
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
-                    placeholder="Type your answer..."
-                    className="w-full pl-4 pr-12 py-3 bg-slate-700 border border-slate-600 rounded-full text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    disabled={isAnswering}
-                />
-                <button type="submit" disabled={isAnswering || !userInput.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed transition-colors">
-                    <SendIcon className="w-5 h-5"/>
-                </button>
-            </div>
-        </form>
       </main>
+
+      <div className="fixed bottom-0 left-0 right-0 p-4">
+        <div className="container mx-auto max-w-4xl">
+          <form onSubmit={handleSendMessage} className="bg-slate-800 border border-slate-700 rounded-xl p-1">
+              <div className="relative">
+                  <input
+                      type="text"
+                      value={userInput}
+                      onChange={(e) => setUserInput(e.target.value)}
+                      placeholder="Type your answer..."
+                      className="w-full pl-4 pr-12 py-3 bg-slate-700 border border-slate-600 rounded-full text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      disabled={isAnswering}
+                  />
+                  <button type="submit" disabled={isAnswering || !userInput.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed transition-colors">
+                      <SendIcon className="w-5 h-5"/>
+                  </button>
+              </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };
