@@ -26,6 +26,7 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
   const [userInput, setUserInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isAnswering, setIsAnswering] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState<number>(window.innerHeight);
   const chatSessionRef = useRef<Chat | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +70,31 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
   }, [bookName]);
 
   useEffect(() => {
+    const handleResize = () => {
+      setViewportHeight(window.innerHeight);
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+
+    // Handle visual viewport changes for mobile keyboards
+    if (window.visualViewport) {
+      const handleVisualViewportChange = () => {
+        setViewportHeight(window.visualViewport!.height);
+      };
+      window.visualViewport.addEventListener('resize', handleVisualViewportChange);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', () => {});
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
@@ -108,17 +134,22 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
   const handleSendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userInput.trim() || isAnswering || !chatSessionRef.current) return;
-    
+
     const userMessage: ChatMessage = { id: Date.now().toString(), sender: 'user', text: userInput };
     setMessages(prev => [...prev, userMessage]);
     setUserInput('');
     setIsAnswering(true);
 
+    // Scroll to bottom after adding user message
+    setTimeout(() => {
+      chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
+    }, 100);
+
     try {
-        const stream = await chatSessionRef.current.sendMessageStream({ 
+        const stream = await chatSessionRef.current.sendMessageStream({
           message: userInput
         });
-        
+
         let text = '';
         for await (const chunk of stream) {
             text += chunk.text;
@@ -126,6 +157,11 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
 
         const aiMessage: ChatMessage = { id: (Date.now() + 1).toString(), sender: 'ai', text };
         setMessages(prev => [...prev, aiMessage]);
+
+        // Scroll to bottom after AI response
+        setTimeout(() => {
+          chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
+        }, 100);
 
     } catch (error) {
         console.error("Error sending message:", error);
@@ -156,7 +192,7 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
   }
 
   return (
-    <div className="container mx-auto max-w-4xl p-4 flex flex-col h-screen">
+    <div className="container mx-auto max-w-4xl p-4 flex flex-col" style={{ height: `${viewportHeight}px` }}>
       <button onClick={onSearchAnother} className="flex items-center space-x-2 text-slate-300 hover:text-white self-start mb-4">
         <BackArrowIcon className="w-5 h-5"/>
         <span>Search for another book</span>
@@ -189,7 +225,7 @@ const DeepDivePage: React.FC<DeepDivePageProps> = ({ bookName, onSearchAnother }
         <div className="p-1 border-b border-slate-700">
             <h2 className="text-xl font-bold">Deep Understanding</h2>
         </div>
-        <div ref={chatContainerRef} className="flex-1 p-1 overflow-y-auto space-y-2">
+        <div ref={chatContainerRef} className="flex-1 p-1 overflow-y-auto space-y-2 touch-pan-y min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
           {messages.map((msg) => (
              <div key={msg.id} className={`flex items-start gap-4 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.sender === 'ai' && <div className="w-10 h-10 rounded-full bg-purple-500 flex-shrink-0 flex items-center justify-center"><AiIcon className="w-6 h-6 text-white" /></div>}
